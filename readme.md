@@ -4,4 +4,8 @@ The Biased programming language is a programming language that I built to train 
 
 ## Architecture
 
-the Biased programming is interpreted.
+The Biased programming is Interpreted.
+
+## Syntax
+
+The Biased programming language is statically typed.
