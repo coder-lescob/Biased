@@ -19,6 +19,8 @@ pub enum Token {
     Hash,
     StringLiteral(String),
     InvalidStringLiteral(String),
+    CharLiteral(char),
+    InvalidCharLiteral(char),
 
     // ids
     Identifier(String),
@@ -52,7 +54,7 @@ fn is_indentifier(s: &str) -> bool {
     return true;
 } 
 
-pub fn is_str_literal(s: &str) -> bool {
+fn is_str_literal(s: &str) -> bool {
     let quote_at_start: bool = s.chars().nth(0) == Some('"');
     let quote_at_end: bool   = s.chars().last() == Some('"') && (s.chars().nth_back(1) != Some('\\') || s.chars().nth_back(2) == Some('\\'));
     let not_the_same_quote   = s.len() >= 2;
@@ -64,6 +66,34 @@ fn is_invalid_str_literal(s: &str) -> bool {
     let quote_not_at_end: bool = s.chars().last() != Some('"') || s.chars().nth_back(1) == Some('\\') && s.chars().nth_back(2) != Some('\\');
     let not_the_same_quote     = s.len() >= 2;
     return quote_at_start && quote_not_at_end && not_the_same_quote;
+}
+
+fn is_char_literal(s: &str) -> bool {
+    let has_correct_len = 3 <= s.len() && s.len() <= 4;
+    if !has_correct_len { 
+        return false; 
+    }
+
+    let is_escape_char = s.chars().nth(1).unwrap() == '\'';
+    if s.len() == 4 && !is_escape_char { 
+        return false; 
+    }
+    
+    let quote_at_start = s.chars().nth(0).unwrap() == '\'';
+    let quote_at_end   = s.chars().last().unwrap() == '\'';
+    
+    return quote_at_start && quote_at_end;
+}
+
+fn is_invalid_char_literal(s: &str) -> bool {
+    let has_correct_len = 0 < s.len() && s.len() <= 4;
+    if !has_correct_len {
+        return false;
+    }
+
+    let quote_at_start = s.chars().nth(0).unwrap() == '\'';
+    let quote_at_end   = s.chars().last().unwrap() == '\'' && s.len() >= 2;
+    return quote_at_start && !quote_at_end;
 }
 
 fn get_escape(ch: char) -> char {
@@ -107,6 +137,25 @@ fn str_literal_process(mut s: String) -> String {
     return s;
 }
 
+fn char_literal_process(s: String) -> char {
+    if s.len() < 2 {
+        return '\0';
+    }
+    let is_escape_char = s.len() == 4;
+
+    let ch = s.chars().nth_back(1);
+
+    if ch == None {
+        return '\0';
+    }
+
+    if is_escape_char {
+        return get_escape(ch.unwrap());
+    }
+
+    return ch.unwrap();
+}
+
 impl FromStr for Token {
     type Err = TokenParseErr;
 
@@ -114,8 +163,10 @@ impl FromStr for Token {
         
         // string literals are able to have blank symbols in them
         // string literals and character literal
-        if is_invalid_str_literal(s)    { return Ok(Token::InvalidStringLiteral(s.to_string())) }
-        if is_str_literal(s)            { return Ok(Token::StringLiteral       (str_literal_process(s.to_string()))) }
+        if is_invalid_str_literal(s)    { return Ok(Token::InvalidStringLiteral(s.to_string()))                       }
+        if is_str_literal(s)            { return Ok(Token::StringLiteral       (str_literal_process(s.to_string())))  }
+        if is_char_literal(s)           { return Ok(Token::CharLiteral         (char_literal_process(s.to_string()))) }
+        if is_invalid_char_literal(s)   { return Ok(Token::InvalidCharLiteral  (char_literal_process(s.to_string()))) }
 
         if s.len() == 0 || s.chars().any(|c| BLANK_SYMBOLS.contains(&c)) {
             return Err(TokenParseErr);
@@ -177,7 +228,7 @@ impl Debug for TokenizationErr {
         let underline = vec!["^"; num_unknowns_letters].concat();
         let bad_letters: String = self.token
             .get(0..num_unknowns_letters)
-            .unwrap()
+            .unwrap_or("")
             .chars()
             .flat_map(|c| ['\'', c, '\'', ','])
             .collect::<String>()
@@ -205,10 +256,13 @@ pub fn tokenize(code: &str) -> Result<Vec<Token>, TokenizationErr> {
 
         let is_next_buffer_invalid = is_type::<Token>(&buffer) && !is_type::<Token>(&next_buffer);
         let is_string_literal = buffer.parse::<Token>().unwrap_or(Token::Invalid) == Token::StringLiteral(str_literal_process(buffer.clone()));
-        let string_literal_invalid = next_buffer.parse::<Token>().unwrap_or(Token::Invalid) == Token::InvalidStringLiteral(next_buffer.clone()) &&
+        let next_string_literal_invalid = next_buffer.parse::<Token>().unwrap_or(Token::Invalid) == Token::InvalidStringLiteral(next_buffer.clone()) &&
                                 next_buffer.chars().nth_back(1) != Some('\\');
 
-        if is_next_buffer_invalid || is_string_literal && string_literal_invalid {
+        let is_char_literal = buffer.parse::<Token>().unwrap_or(Token::Invalid) == Token::CharLiteral(char_literal_process(buffer.clone()));
+        let next_chr_literal_invalid = next_buffer.parse::<Token>().unwrap_or(Token::Invalid) == Token::InvalidCharLiteral(char_literal_process(next_buffer.clone()));
+
+        if is_next_buffer_invalid || is_string_literal && next_string_literal_invalid || is_char_literal && next_chr_literal_invalid {
             // token found
             let token = buffer.parse::<Token>().unwrap();
             tokens.push(token);
@@ -217,7 +271,7 @@ pub fn tokenize(code: &str) -> Result<Vec<Token>, TokenizationErr> {
             buffer.clear();
         }
         
-        if BLANK_SYMBOLS.contains(&symbol) && (!string_literal_invalid || is_string_literal) {
+        if BLANK_SYMBOLS.contains(&symbol) && (!next_string_literal_invalid || is_string_literal) && (!next_chr_literal_invalid || is_char_literal) {
             continue;
         }
 
@@ -241,6 +295,7 @@ pub fn tokenize(code: &str) -> Result<Vec<Token>, TokenizationErr> {
     return Ok(tokens);
 }
 
+#[allow(dead_code)]
 fn print_diff(tokens: &Vec<Token>, expecteds: &Vec<Token>) {
     for token in tokens {
         if !expecteds.contains(token) {
