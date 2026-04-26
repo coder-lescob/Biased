@@ -254,7 +254,8 @@ pub fn tokenize(code: &str) -> Result<Vec<Token>, TokenizationErr> {
         let mut next_buffer = buffer.clone();
         next_buffer.push(symbol);
 
-        let is_next_buffer_invalid = is_type::<Token>(&buffer) && !is_type::<Token>(&next_buffer);
+        let is_next_buffer_invalid = is_type::<Token>(&buffer) 
+                                 && !is_type::<Token>(&next_buffer);
         let is_string_literal = buffer.parse::<Token>().unwrap_or(Token::Invalid) == Token::StringLiteral(str_literal_process(buffer.clone()));
         let next_string_literal_invalid = next_buffer.parse::<Token>().unwrap_or(Token::Invalid) == Token::InvalidStringLiteral(next_buffer.clone()) &&
                                 next_buffer.chars().nth_back(1) != Some('\\');
@@ -262,7 +263,10 @@ pub fn tokenize(code: &str) -> Result<Vec<Token>, TokenizationErr> {
         let is_char_literal = buffer.parse::<Token>().unwrap_or(Token::Invalid) == Token::CharLiteral(char_literal_process(buffer.clone()));
         let next_chr_literal_invalid = next_buffer.parse::<Token>().unwrap_or(Token::Invalid) == Token::InvalidCharLiteral(char_literal_process(next_buffer.clone()));
 
-        if is_next_buffer_invalid || is_string_literal && next_string_literal_invalid || is_char_literal && next_chr_literal_invalid {
+        if is_next_buffer_invalid 
+        || is_string_literal && next_string_literal_invalid 
+        || is_char_literal && next_chr_literal_invalid 
+        {
             // token found
             let token = buffer.parse::<Token>().unwrap();
             tokens.push(token);
@@ -271,7 +275,10 @@ pub fn tokenize(code: &str) -> Result<Vec<Token>, TokenizationErr> {
             buffer.clear();
         }
         
-        if BLANK_SYMBOLS.contains(&symbol) && (!next_string_literal_invalid || is_string_literal) && (!next_chr_literal_invalid || is_char_literal) {
+        if BLANK_SYMBOLS.contains(&symbol) 
+        && (!next_string_literal_invalid || is_string_literal) 
+        && (!next_chr_literal_invalid || is_char_literal) 
+        {
             continue;
         }
 
@@ -305,7 +312,7 @@ fn print_diff(tokens: &Vec<Token>, expecteds: &Vec<Token>) {
 
     for token in expecteds {
         if !tokens.contains(token) {
-            println!("ttoken: {:?} not found", token);
+            println!("token: {:?} not found", token);
         }
     }
 }
