@@ -2,7 +2,7 @@ use std::{fmt::Debug, str::FromStr};
 
 static BLANK_SYMBOLS: &[char] = &[' ', '\n', '\t'];
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     // symbols
     OpenParentheses,
@@ -12,11 +12,13 @@ pub enum Token {
     OpenCurlyBrackets,
     CloseCurlyBrackets,
     SemiColon,
+    Comma,
+    Colon,
+    Hash,
 
     // keywords
     Func,
-
-    Hash,
+    
     StringLiteral(String),
     InvalidStringLiteral(String),
     CharLiteral(char),
@@ -26,7 +28,7 @@ pub enum Token {
     Identifier(String),
 
     // numbers
-    UInt(u64),
+    Uint(u64),
     Int(i64),
     Float(f64),
 
@@ -173,7 +175,7 @@ impl FromStr for Token {
         }
 
         // number literals
-        if is_type::<u64>(s) { return Ok(Token::UInt (s.parse::<u64>().unwrap())); }
+        if is_type::<u64>(s) { return Ok(Token::Uint (s.parse::<u64>().unwrap())); }
         if is_type::<i64>(s) { return Ok(Token::Int  (s.parse::<i64>().unwrap())); }
         if is_type::<f64>(s) { return Ok(Token::Float(s.parse::<f64>().unwrap())); }
 
@@ -186,6 +188,8 @@ impl FromStr for Token {
             "}" => return Ok(Token::CloseCurlyBrackets),
             "#" => return Ok(Token::Hash),
             ";" => return Ok(Token::SemiColon),
+            "," => return Ok(Token::Comma),
+            ":" => return Ok(Token::Colon),
 
             "func" => return Ok(Token::Func),
             _ => { /* not a keyword or a known symbol */ },
