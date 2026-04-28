@@ -17,6 +17,8 @@ pub enum SyntaxNode {
     
     Var       ( Token /* id */, Box<SyntaxNode> /* type */          ),
     Type      ( Token                                               ),
+
+    VarDecl   ( Vec<SyntaxNode> /* name, type and expr */),
 }
 
 #[derive(Debug, Clone)]
@@ -73,6 +75,7 @@ fn try_parse(mut tokens: &mut Peekable<slice::Iter<'_, Token>>,
 }
 
 fn expects_token(expected: Token, found: &Token) -> Result<(), SyntaxError> {
+    
     if *found != expected {
         return Err(SyntaxError::Expected( expected, found.clone() ));
     }
@@ -84,6 +87,35 @@ fn expects_an_identfier(found: &Token) -> Result<(), SyntaxError> {
         Token::Identifier(..) => Ok(()),
         _                     => Err(SyntaxError::ExpectedIdentifier(found.clone())),
     }
+}
+
+fn check_instruction_result(instruction_result: Result<SyntaxNode, SyntaxError>, instruction: &mut Result<SyntaxNode, SyntaxError>, dst: &usize, biggest_dst: &mut usize) {
+    if instruction_result.is_ok() || dst > biggest_dst || *biggest_dst == 0 {
+        *instruction = instruction_result;
+        *biggest_dst = *dst;
+    }
+}
+
+fn parse_instruction(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, SyntaxError> {
+    let mut instruction: Result<SyntaxNode, SyntaxError> = Err(SyntaxError::UnknownInstruction);
+    let mut biggest_dst: usize = usize::MIN;
+
+    let (func_def, dst) = try_parse(tokens, &parse_func_def);
+    check_instruction_result(func_def, &mut instruction, &dst, &mut biggest_dst);
+
+    let (func_call, dst) = try_parse(tokens, &parse_func_call);
+    check_instruction_result(func_call, &mut instruction, &dst, &mut biggest_dst);
+
+    let (var_decl, dst) = try_parse(tokens, &parse_var_decl);
+    check_instruction_result(var_decl, &mut instruction, &dst, &mut biggest_dst);
+
+    match instruction {
+        Ok(SyntaxNode::FuncDef(..)) => ( /* no semi-colon after function definition */ ),
+        Err(..) => ( /* there is an error don't touche to it neither expects a semi-colon after an error */ ),
+        _ => expects_token(Token::SemiColon, tokens.next().unwrap_or(&Token::EOF))?,
+    };
+
+    return instruction;
 }
 
 fn parse_func_header(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, SyntaxError> {
@@ -140,22 +172,6 @@ fn parse_func_params(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<Sy
     return Ok(SyntaxNode::FuncParams(func_params));
 }
 
-fn parse_type(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, SyntaxError> {
-    let var_type = tokens.next().unwrap_or(&Token::EOF);
-    expects_an_identfier(var_type)?;
-
-    return Ok(SyntaxNode::Type(var_type.clone()));
-}
-
-fn parse_var(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, SyntaxError> {
-    let var_type = parse_type(tokens)?;
-    
-    let name = tokens.next().unwrap_or(&Token::EOF);
-    expects_an_identfier(name)?;
-
-    return Ok(SyntaxNode::Var(name.clone(), Box::new(var_type)));
-}
-
 fn parse_func_def(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, SyntaxError> {
     let mut func_body = vec![];
 
@@ -205,32 +221,6 @@ fn parse_scope(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNo
     expects_token(Token::CloseCurlyBrackets, tokens.next().unwrap_or(&Token::EOF))?;
 
     return Ok(SyntaxNode::Scope(code))
-}
-
-fn check_instruction_result(instruction_result: Result<SyntaxNode, SyntaxError>, instruction: &mut Result<SyntaxNode, SyntaxError>, dst: &usize, biggest_dst: &mut usize) {
-    if instruction_result.is_ok() || dst > biggest_dst || *biggest_dst == 0 {
-        *instruction = instruction_result;
-        *biggest_dst = *dst;
-    }
-}
-
-fn parse_instruction(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, SyntaxError> {
-    let mut instruction: Result<SyntaxNode, SyntaxError> = Err(SyntaxError::UnknownInstruction);
-    let mut biggest_dst: usize = usize::MIN;
-
-    let (func_def, dst) = try_parse(tokens, &parse_func_def);
-    check_instruction_result(func_def, &mut instruction, &dst, &mut biggest_dst);
-
-    let (func_call, dst) = try_parse(tokens, &parse_func_call);
-    check_instruction_result(func_call, &mut instruction, &dst, &mut biggest_dst);
-
-    match instruction {
-        Ok(SyntaxNode::FuncDef(..)) => ( /* no semi-colon after function definition */ ),
-        Err(..) => ( /* there is an error don't touche to it neither expects a semi-colon after an error */ ),
-        _ => expects_token(Token::SemiColon, tokens.next().unwrap_or(&Token::EOF))?,
-    };
-
-    return instruction;
 }
 
 fn parse_func_call(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, SyntaxError> {
@@ -293,7 +283,7 @@ fn parse_expression(tokens: &mut Peekable<slice::Iter<'_, Token>>, min_binding_p
         let op = tokens.peek().unwrap_or(&&Token::EOF);
 
         match op {
-            Token::Comma | Token::EOF | Token::CloseParentheses => break,
+            Token::Comma | Token::SemiColon | Token::EOF | Token::CloseParentheses => break,
             _ => (/* we want to throw an error if op is not an operator */)
         }
         
@@ -326,4 +316,30 @@ fn parse_value(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNo
         => Ok(SyntaxNode::ExprLiteral(expr.clone())),
         found => Err(SyntaxError::ExpectedExpr(found.clone())),
     }
+}
+
+fn parse_type(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, SyntaxError> {
+    let var_type = tokens.next().unwrap_or(&Token::EOF);
+    expects_an_identfier(var_type)?;
+
+    return Ok(SyntaxNode::Type(var_type.clone()));
+}
+
+fn parse_var(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, SyntaxError> {
+    let var_type = parse_type(tokens)?;
+    
+    let name = tokens.next().unwrap_or(&Token::EOF);
+    expects_an_identfier(name)?;
+
+    return Ok(SyntaxNode::Var(name.clone(), Box::new(var_type)));
+}
+
+fn parse_var_decl(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, SyntaxError> {
+    expects_token(Token::Let, tokens.next().unwrap_or(&Token::EOF))?;
+
+    let var = parse_var(tokens)?;
+    expects_token(Token::Equal, tokens.next().unwrap_or(&Token::EOF))?;
+    let value = parse_expression(tokens, 0.0)?;
+
+    return Ok(SyntaxNode::VarDecl(vec![var, value]));
 }

@@ -9,3 +9,8 @@ The Biased programming is Interpreted.
 ## Syntax
 
 The Biased programming language is statically typed.
+A variable is declared using the following syntax:
+
+```Biased
+let <type> <name> = <value>;
+```
