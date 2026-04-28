@@ -19,7 +19,8 @@ fn main() -> Result<(), SyntaxError> {
     let code = std::fs::read_to_string(code_file).expect("unable to open input file");
     let tokens = lexer::tokenize(&code).expect(format!("{COLOR_RED}Lexical error{DEFAULT_COLOR}").as_str());
 
-    println!("{:#?}", parser::parse(tokens)?);
+    println!("tokens = \n{:#?}\n", tokens);
+    println!("ast = \n{:#?}\n", parser::parse(tokens)?);
 
     Ok(())
 }

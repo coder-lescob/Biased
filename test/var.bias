@@ -1,0 +1,4 @@
+[entry_point]
+func main() {
+    let int x = 5;
+}

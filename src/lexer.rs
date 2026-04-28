@@ -3,6 +3,7 @@ use std::{fmt::Debug, str::FromStr};
 static BLANK_SYMBOLS: &[char] = &[' ', '\n', '\t'];
 
 #[derive(Debug, PartialEq, Clone)]
+#[allow(dead_code)]
 pub enum Token {
     // symbols
     OpenParentheses,
@@ -16,8 +17,28 @@ pub enum Token {
     Colon,
     Hash,
 
+    // arithmetic
+    Equal,
+    Plus,
+    Minus,
+    Times,
+    Div,
+    Mod,
+    
+    // bitwise arithmetic
+    BitwiseAnd,
+    BitwiseOr,
+    BitwiseXor,
+    BitwiseNot,
+
+    // boolean arithmetic
+    BoolAnd,
+    BoolOr,
+    BoolXor,
+
     // keywords
     Func,
+    Let,
     
     StringLiteral(String),
     InvalidStringLiteral(String),
@@ -191,7 +212,26 @@ impl FromStr for Token {
             "," => return Ok(Token::Comma),
             ":" => return Ok(Token::Colon),
 
+            // arithmetic
+            "=" => return Ok(Token::Equal),
+            "+" => return Ok(Token::Plus),
+            "-" => return Ok(Token::Minus),
+            "*" => return Ok(Token::Times),
+            "/" => return Ok(Token::Div),
+
+            // bitwise arithmetic
+            "&" => return Ok(Token::BitwiseAnd),
+            "|" => return Ok(Token::BitwiseOr ),
+            "^" => return Ok(Token::BitwiseXor),
+            "!" => return Ok(Token::BitwiseNot),
+
+            // boolean arithmetic
+            "&&" => return Ok(Token::BoolAnd),
+            "||" => return Ok(Token::BoolOr ),
+            "##" => return Ok(Token::BoolXor),
+
             "func" => return Ok(Token::Func),
+            "let"  => return Ok(Token::Let),
             _ => { /* not a keyword or a known symbol */ },
         }
 

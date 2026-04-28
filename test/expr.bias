@@ -1,0 +1,4 @@
+[entry_point]
+func main() {
+    println("%d", 1 + 2 * 2);
+}
