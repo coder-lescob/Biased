@@ -1,11 +1,16 @@
 [entry_point]
 func main() {
+
+    println("give me the first letter of the alphabet.");
     let char ch = get_input();
 
     if ch == 'a' {
         println("yes");
     }
+    else if ch == 'b' {
+        println("nope you missed by a one letter");
+    }
     else {
-        println("nope");
+        println("#&@#& ! You stupid !");
     }
 }
