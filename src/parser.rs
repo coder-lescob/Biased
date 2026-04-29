@@ -25,6 +25,8 @@ pub enum SyntaxNode {
 
     If    (Vec<SyntaxNode> /* expr, body, [else] */),
     Else  (Box<SyntaxNode> /* body */              ),
+
+    While(Vec<SyntaxNode> /* condition, scope */)
 }
 
 pub fn parse(tokens: &Vec<Token>) -> Result<SyntaxNode, Error> {
@@ -119,8 +121,11 @@ fn parse_instruction(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<Sy
     let (if_check, dst) = try_parse(tokens, &parse_if_else);
     check_instruction_result(if_check, &mut instruction, &dst, &mut biggest_dst);
 
+    let (while_loop, dst) = try_parse(tokens, &parse_while_loop);
+    check_instruction_result(while_loop, &mut instruction, &dst, &mut biggest_dst);
+
     match instruction {
-        Ok(SyntaxNode::FuncDef(..) | SyntaxNode::If(..)) => ( /* no semi-colon after function definition or if stmt */ ),
+        Ok(SyntaxNode::FuncDef(..) | SyntaxNode::If(..) | SyntaxNode::While(..))  => ( /* no semi-colon after function definition or if stmt */ ),
         Err(..) => ( /* there is an error don't touche to it neither expects a semi-colon after an error */ ),
         _ => expects_token(Token::SemiColon, tokens.next().unwrap_or(&Token::EOF))?,
     };
@@ -458,4 +463,12 @@ fn parse_var_inc_dec(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<Sy
 
     // make it add 1 or -1
     return Ok(SyntaxNode::VarModif(name.clone(), Token::Plus, Box::new(amount)));
+}
+
+fn parse_while_loop(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
+    expects_token(Token::While, tokens.next().unwrap_or(&Token::EOF))?;
+    let condition = parse_expression(tokens, 0.0)?;
+    let scope = parse_scope(tokens)?;
+
+    return Ok(SyntaxNode::While(vec![condition, scope]));
 }
