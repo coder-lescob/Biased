@@ -1,0 +1,11 @@
+[entry_point]
+func main() {
+    let char ch = get_input();
+
+    if ch == 'a' {
+        println("yes");
+    }
+    else {
+        println("nope");
+    }
+}

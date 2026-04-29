@@ -37,9 +37,18 @@ pub enum Token {
     BoolOr,
     BoolXor,
 
+    // comparaison
+    EqualTo,
+    BiggerThan,
+    LessThan,
+    BiggerOrEqualTo,
+    LessOrEqualTo,
+
     // keywords
     Func,
     Let,
+    If,
+    Else,
 
     // cast
     As,
@@ -238,9 +247,18 @@ impl FromStr for Token {
             "||" => return Ok(Token::BoolOr ),
             "##" => return Ok(Token::BoolXor),
 
+            // comparaison
+            "==" => return Ok(Token::EqualTo),
+            ">"  => return Ok(Token::BiggerThan),
+            "<"  => return Ok(Token::LessThan),
+            ">=" => return Ok(Token::BiggerOrEqualTo),
+            "<=" => return Ok(Token::LessOrEqualTo),
+
             "func" => return Ok(Token::Func),
             "let"  => return Ok(Token::Let),
             "as"   => return Ok(Token::As),
+            "if"   => return Ok(Token::If),
+            "else" => return Ok(Token::Else),
             _ => { /* not a keyword or a known symbol */ },
         }
 

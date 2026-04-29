@@ -22,6 +22,9 @@ pub enum SyntaxNode {
 
     VarDecl   (Vec<SyntaxNode> /* name, type and expr */ ),
     VarModif  (Token, Token, Box<SyntaxNode> /* name, op, new value */ ),
+
+    If    (Vec<SyntaxNode> /* expr, body, [else] */),
+    Else  (Box<SyntaxNode> /* body */              ),
 }
 
 pub fn parse(tokens: &Vec<Token>) -> Result<SyntaxNode, Error> {
@@ -103,8 +106,11 @@ fn parse_instruction(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<Sy
     let (var_modif, dst) = try_parse(tokens, &parse_var_modif);
     check_instruction_result(var_modif, &mut instruction, &dst, &mut biggest_dst);
 
+    let (if_check, dst) = try_parse(tokens, &parse_if_else);
+    check_instruction_result(if_check, &mut instruction, &dst, &mut biggest_dst);
+
     match instruction {
-        Ok(SyntaxNode::FuncDef(..)) => ( /* no semi-colon after function definition */ ),
+        Ok(SyntaxNode::FuncDef(..) | SyntaxNode::If(..)) => ( /* no semi-colon after function definition or if stmt */ ),
         Err(..) => ( /* there is an error don't touche to it neither expects a semi-colon after an error */ ),
         _ => expects_token(Token::SemiColon, tokens.next().unwrap_or(&Token::EOF))?,
     };
@@ -261,10 +267,20 @@ fn parse_func_args(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<Synt
 
 fn get_binding_power(token: &Token) -> Result<(f64, f64), Error> {
     match token {
+        // comparaison
+        Token::EqualTo         => Ok((0.0, 0.1)),
+        Token::BiggerThan      => Ok((0.0, 0.1)),
+        Token::LessThan        => Ok((0.0, 0.1)),
+        Token::BiggerOrEqualTo => Ok((0.0, 0.1)),
+        Token::LessOrEqualTo   => Ok((0.0, 0.1)),
+
+        // arithmetic
         Token::Plus  => Ok((1.0, 1.1)),
         Token::Minus => Ok((1.0, 1.1)),
         Token::Times => Ok((2.0, 2.1)),
         Token::Div   => Ok((2.0, 2.1)),
+
+        // bitwise arithmetic
         Token::BitwiseAnd => Ok((5.0, 5.1)),
         Token::BitwiseOr  => Ok((3.0, 3.1)),
         Token::BitwiseXor => Ok((4.0, 4.1)),
@@ -290,7 +306,7 @@ fn parse_expression(tokens: &mut Peekable<slice::Iter<'_, Token>>, min_binding_p
 
         match op {
             // end of expression
-            Token::Comma | Token::SemiColon | Token::EOF | Token::CloseParentheses => break,
+            Token::Comma | Token::SemiColon | Token::EOF | Token::CloseParentheses | Token::OpenCurlyBrackets => break,
 
             // expression cast
             Token::As => {
@@ -384,4 +400,33 @@ fn parse_var_modif(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<Synt
     let value = parse_expression(tokens, 0.0)?;
 
     return Ok(SyntaxNode::VarModif(name.clone(), operator.clone(), Box::new(value)));
+}
+
+fn parse_if_else(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
+    expects_token(Token::If, tokens.next().unwrap_or(&Token::EOF))?;
+    let condition = parse_expression(tokens, 0.0)?;
+    let scope = parse_scope(tokens)?;
+
+    let (else_stmt, _) = try_parse(tokens, &parse_else);
+    if else_stmt.is_ok() {
+        return Ok(SyntaxNode::If(vec![condition, scope, else_stmt.unwrap()]));
+    }
+
+    return Ok(SyntaxNode::If(vec![condition, scope]));
+}
+
+fn parse_else(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
+    expects_token(Token::Else, tokens.next().unwrap_or(&Token::EOF))?;
+
+    let (elif_check, _) = try_parse(tokens, &parse_if_else);
+    if elif_check.is_ok() {
+        // make the interpreter believe that if is in the scope of the else
+        // if ... { ... } else if ... { ... } => if ... { ... } else { if ... { ... } }
+        let elif_scope = SyntaxNode::Scope(vec![elif_check.unwrap()]);
+        return Ok(SyntaxNode::Else(Box::new(elif_scope)));
+    }
+
+    let scope = parse_scope(tokens)?;
+
+    return Ok(SyntaxNode::Else(Box::new(scope)));
 }
