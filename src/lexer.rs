@@ -1,3 +1,4 @@
+use crate::error::Error;
 use std::{fmt::Debug, str::FromStr};
 
 static BLANK_SYMBOLS: &[char] = &[' ', '\n', '\t'];
@@ -59,9 +60,6 @@ pub enum Token {
     EOF,
 }
 
-#[derive(Debug)]
-pub struct TokenParseErr;
-
 fn is_indentifier(s: &str) -> bool {
     let mut buffer = String::new();
 
@@ -117,6 +115,13 @@ fn is_invalid_char_literal(s: &str) -> bool {
     let quote_at_start = s.chars().nth(0).unwrap() == '\'';
     let quote_at_end   = s.chars().last().unwrap() == '\'' && s.len() >= 2;
     return quote_at_start && !quote_at_end;
+}
+
+#[inline]
+fn is_type<T>(value: &str) -> bool
+where T: FromStr 
+{
+    return !value.parse::<T>().is_err();
 }
 
 fn get_escape(ch: char) -> char {
@@ -180,7 +185,7 @@ fn char_literal_process(s: String) -> char {
 }
 
 impl FromStr for Token {
-    type Err = TokenParseErr;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         
@@ -192,7 +197,7 @@ impl FromStr for Token {
         if is_invalid_char_literal(s)   { return Ok(Token::InvalidCharLiteral  (char_literal_process(s.to_string()))) }
 
         if s.len() == 0 || s.chars().any(|c| BLANK_SYMBOLS.contains(&c)) {
-            return Err(TokenParseErr);
+            return Err(Error::LexicalError(String::from(s)));
         }
 
         // number literals
@@ -237,54 +242,11 @@ impl FromStr for Token {
 
         if is_indentifier(s) { return Ok(Token::Identifier(s.to_string())); }
 
-        Err(TokenParseErr)
+        Err(Error::LexicalError(String::from(s)))
     }
 }
 
-#[inline]
-fn is_type<T>(value: &str) -> bool
-where T: FromStr 
-{
-    return !value.parse::<T>().is_err();
-}
-
-pub struct TokenizationErr {
-    token: String,
-}
-
-fn get_num_unknowns(s: &str) -> u32 {
-    let mut num = 0;
-
-    for ch in s.chars() {
-        if is_type::<Token>(ch.to_string().as_str()) {
-            break;
-        }
-        
-        num += 1;
-    }
-
-    return num;
-}
-
-impl Debug for TokenizationErr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let num_unknowns_letters = get_num_unknowns(self.token.as_str()) as usize;
-        let underline = vec!["^"; num_unknowns_letters].concat();
-        let bad_letters: String = self.token
-            .get(0..num_unknowns_letters)
-            .unwrap_or("")
-            .chars()
-            .flat_map(|c| ['\'', c, '\'', ','])
-            .collect::<String>()
-            .trim_end_matches(',')
-            .to_string();
-
-        f.write_str(format!("Unknown token kind\n{}\n\x1b[38;5;196m{}unknown symbol(s) {}\x1b[0m", self.token, underline, bad_letters).as_str())?;
-        Ok(())
-    }
-}
-
-pub fn tokenize(code: &str) -> Result<Vec<Token>, TokenizationErr> {
+pub fn tokenize(code: &str) -> Result<Vec<Token>, Error> {
 
     // create the token vector
     let mut tokens: Vec<Token> = Vec::new();
@@ -338,7 +300,7 @@ pub fn tokenize(code: &str) -> Result<Vec<Token>, TokenizationErr> {
         buffer.clear();
     }
     else {
-        return Err(TokenizationErr {token: buffer});
+        return Err(Error::LexicalError(buffer));
     }
 
     tokens.push(Token::EOF);

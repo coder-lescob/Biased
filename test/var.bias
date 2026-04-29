@@ -1,4 +1,4 @@
 [entry_point]
 func main() {
-    let int x = 5;
+    let int x = 33 & 105 | 2 + 1;
 }

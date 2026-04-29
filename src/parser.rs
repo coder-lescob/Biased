@@ -1,4 +1,5 @@
 use crate::lexer::Token;
+use crate::error::Error;
 use std::{iter::Peekable, slice};
 
 #[derive(Debug, PartialEq, Clone)]
@@ -21,20 +22,8 @@ pub enum SyntaxNode {
     VarDecl   ( Vec<SyntaxNode> /* name, type and expr */),
 }
 
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub enum SyntaxError {
-    Expected( Token, Token ),
-    ExpectedIdentifier( Token ),
-    ExpectedExpr      ( Token ),
-    NotAnOperator     ( Token ),
-
-    UnknownInstruction,
-}
-
-pub fn parse(tokens: Vec<Token>) -> Result<SyntaxNode, SyntaxError> {
+pub fn parse(tokens: Vec<Token>) -> Result<SyntaxNode, Error> {
     let mut tokens_iter = tokens.iter().peekable();
-
     let mut code: Vec<SyntaxNode> = vec![];
 
     loop {
@@ -61,7 +50,7 @@ pub fn parse(tokens: Vec<Token>) -> Result<SyntaxNode, SyntaxError> {
 }
 
 fn try_parse(mut tokens: &mut Peekable<slice::Iter<'_, Token>>, 
-            parse_func: &dyn Fn(&mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, SyntaxError>) -> (Result<SyntaxNode, SyntaxError>, usize)
+            parse_func: &dyn Fn(&mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error>) -> (Result<SyntaxNode, Error>, usize)
 {
     let mut try_tokens = tokens.clone();
     let parse_try = parse_func(&mut try_tokens);
@@ -74,30 +63,30 @@ fn try_parse(mut tokens: &mut Peekable<slice::Iter<'_, Token>>,
     return (parse_func(&mut tokens), usize::MAX);
 }
 
-fn expects_token(expected: Token, found: &Token) -> Result<(), SyntaxError> {
+fn expects_token(expected: Token, found: &Token) -> Result<(), Error> {
     
     if *found != expected {
-        return Err(SyntaxError::Expected( expected, found.clone() ));
+        return Err(Error::Expected( expected, found.clone() ));
     }
     return Ok(());
 }
 
-fn expects_an_identfier(found: &Token) -> Result<(), SyntaxError> {
+fn expects_an_identfier(found: &Token) -> Result<(), Error> {
     match found {
         Token::Identifier(..) => Ok(()),
-        _                     => Err(SyntaxError::ExpectedIdentifier(found.clone())),
+        _                     => Err(Error::ExpectedIdentifier(found.clone())),
     }
 }
 
-fn check_instruction_result(instruction_result: Result<SyntaxNode, SyntaxError>, instruction: &mut Result<SyntaxNode, SyntaxError>, dst: &usize, biggest_dst: &mut usize) {
+fn check_instruction_result(instruction_result: Result<SyntaxNode, Error>, instruction: &mut Result<SyntaxNode, Error>, dst: &usize, biggest_dst: &mut usize) {
     if instruction_result.is_ok() || dst > biggest_dst || *biggest_dst == 0 {
         *instruction = instruction_result;
         *biggest_dst = *dst;
     }
 }
 
-fn parse_instruction(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, SyntaxError> {
-    let mut instruction: Result<SyntaxNode, SyntaxError> = Err(SyntaxError::UnknownInstruction);
+fn parse_instruction(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
+    let mut instruction: Result<SyntaxNode, Error> = Err(Error::UnknownInstruction);
     let mut biggest_dst: usize = usize::MIN;
 
     let (func_def, dst) = try_parse(tokens, &parse_func_def);
@@ -118,7 +107,7 @@ fn parse_instruction(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<Sy
     return instruction;
 }
 
-fn parse_func_header(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, SyntaxError> {
+fn parse_func_header(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
     let open_sqr_brackets = tokens.next().unwrap_or(&Token::EOF);
     expects_token(Token::OpenSqrBrackets, open_sqr_brackets)?;
 
@@ -143,7 +132,7 @@ fn parse_func_header(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<Sy
     return Ok(SyntaxNode::FuncHeader(func_options));
 }
 
-fn parse_func_params(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, SyntaxError> {
+fn parse_func_params(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
     let open_parentheses = tokens.next().unwrap_or(&Token::EOF);
     expects_token(Token::OpenParentheses, open_parentheses)?;
 
@@ -172,7 +161,7 @@ fn parse_func_params(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<Sy
     return Ok(SyntaxNode::FuncParams(func_params));
 }
 
-fn parse_func_def(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, SyntaxError> {
+fn parse_func_def(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
     let mut func_body = vec![];
 
     let (header, _) = try_parse(tokens, &parse_func_header);
@@ -198,7 +187,7 @@ fn parse_func_def(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<Synta
     return Ok(SyntaxNode::FuncDef(func_body));
 }
 
-fn parse_scope(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, SyntaxError> {
+fn parse_scope(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
     expects_token(Token::OpenCurlyBrackets, tokens.next().unwrap_or(&Token::EOF))?;
 
     let mut code: Vec<SyntaxNode> = vec![];
@@ -223,7 +212,7 @@ fn parse_scope(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNo
     return Ok(SyntaxNode::Scope(code))
 }
 
-fn parse_func_call(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, SyntaxError> {
+fn parse_func_call(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
     let mut call: Vec<SyntaxNode> = vec![];
 
     let name = tokens.next().unwrap_or(&Token::EOF);
@@ -236,7 +225,7 @@ fn parse_func_call(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<Synt
     return Ok(SyntaxNode::FuncCall(call));
 }
 
-fn parse_func_args(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, SyntaxError> {
+fn parse_func_args(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
     expects_token(Token::OpenParentheses, tokens.next().unwrap_or(&Token::EOF))?;
 
     // all the arguments to this call
@@ -265,17 +254,20 @@ fn parse_func_args(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<Synt
     return Ok(SyntaxNode::FuncArgs(func_args));
 }
 
-fn get_binding_power(token: &Token) -> Result<(f64, f64), SyntaxError> {
+fn get_binding_power(token: &Token) -> Result<(f64, f64), Error> {
     match token {
         Token::Plus  => Ok((1.0, 1.1)),
         Token::Minus => Ok((1.0, 1.1)),
         Token::Times => Ok((2.0, 2.1)),
         Token::Div   => Ok((2.0, 2.1)),
-        _ => Err(SyntaxError::NotAnOperator(token.clone())),
+        Token::BitwiseAnd => Ok((5.0, 5.1)),
+        Token::BitwiseOr  => Ok((3.0, 3.1)),
+        Token::BitwiseXor => Ok((4.0, 4.1)),
+        _ => Err(Error::NotAnOperator(token.clone())),
     }
 }
 
-fn parse_expression(tokens: &mut Peekable<slice::Iter<'_, Token>>, min_binding_power: f64) -> Result<SyntaxNode, SyntaxError> {
+fn parse_expression(tokens: &mut Peekable<slice::Iter<'_, Token>>, min_binding_power: f64) -> Result<SyntaxNode, Error> {
     // This algorithm is based on pratt parsing
     let mut lhs = parse_value(tokens)?;
 
@@ -304,7 +296,7 @@ fn parse_expression(tokens: &mut Peekable<slice::Iter<'_, Token>>, min_binding_p
     return Ok(lhs);
 }
 
-fn parse_value(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, SyntaxError> {
+fn parse_value(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
     let (func_call, _) = try_parse(tokens, &parse_func_call);
     if func_call.is_ok() {
         return Ok(func_call.unwrap());
@@ -314,18 +306,18 @@ fn parse_value(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNo
     match expr {
         Token::StringLiteral(..) | Token::CharLiteral(..) | Token::Int(..) | Token::Uint(..) | Token::Float(..) | Token::Identifier(..)
         => Ok(SyntaxNode::ExprLiteral(expr.clone())),
-        found => Err(SyntaxError::ExpectedExpr(found.clone())),
+        found => Err(Error::ExpectedExpr(found.clone())),
     }
 }
 
-fn parse_type(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, SyntaxError> {
+fn parse_type(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
     let var_type = tokens.next().unwrap_or(&Token::EOF);
     expects_an_identfier(var_type)?;
 
     return Ok(SyntaxNode::Type(var_type.clone()));
 }
 
-fn parse_var(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, SyntaxError> {
+fn parse_var(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
     let var_type = parse_type(tokens)?;
     
     let name = tokens.next().unwrap_or(&Token::EOF);
@@ -334,7 +326,7 @@ fn parse_var(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode
     return Ok(SyntaxNode::Var(name.clone(), Box::new(var_type)));
 }
 
-fn parse_var_decl(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, SyntaxError> {
+fn parse_var_decl(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
     expects_token(Token::Let, tokens.next().unwrap_or(&Token::EOF))?;
 
     let var = parse_var(tokens)?;

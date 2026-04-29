@@ -1,13 +1,14 @@
 mod lexer;
 mod parser;
+mod error;
 
 use std::env;
-use crate::parser::SyntaxError;
+use crate::error::Error;
 
 static COLOR_RED: &str = "\x1b[38;5;196m";
 static DEFAULT_COLOR: &str = "\x1b[0m";
 
-fn main() -> Result<(), SyntaxError> {
+fn main() -> Result<(), Error> {
     let argv: Vec<String> = env::args().collect();
 
     if argv.len() != 2 {
@@ -17,7 +18,7 @@ fn main() -> Result<(), SyntaxError> {
 
     let code_file = &argv[1];
     let code = std::fs::read_to_string(code_file).expect("unable to open input file");
-    let tokens = lexer::tokenize(&code).expect(format!("{COLOR_RED}Lexical error{DEFAULT_COLOR}").as_str());
+    let tokens = lexer::tokenize(&code)?;
 
     println!("tokens = \n{:#?}\n", tokens);
     println!("ast = \n{:#?}\n", parser::parse(tokens)?);
