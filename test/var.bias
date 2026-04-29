@@ -1,4 +1,9 @@
 [entry_point]
 func main() {
-    let int x = 33 & 105 | 2 + 1;
+    let int x;
+    x = 7;
+    x += 5 * 2 + 6;
+
+    let int y = 5;
+    let float z = y / x;
 }

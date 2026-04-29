@@ -19,7 +19,8 @@ pub enum SyntaxNode {
     Var       ( Token /* id */, Box<SyntaxNode> /* type */          ),
     Type      ( Token                                               ),
 
-    VarDecl   ( Vec<SyntaxNode> /* name, type and expr */),
+    VarDecl   ( Vec<SyntaxNode> /* name, type and expr */ ),
+    VarModif  ( Token, Token, Box<SyntaxNode> /* name, op, new value */ ),
 }
 
 pub fn parse(tokens: &Vec<Token>) -> Result<SyntaxNode, Error> {
@@ -97,6 +98,9 @@ fn parse_instruction(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<Sy
 
     let (var_decl, dst) = try_parse(tokens, &parse_var_decl);
     check_instruction_result(var_decl, &mut instruction, &dst, &mut biggest_dst);
+
+    let (var_modif, dst) = try_parse(tokens, &parse_var_modif);
+    check_instruction_result(var_modif, &mut instruction, &dst, &mut biggest_dst);
 
     match instruction {
         Ok(SyntaxNode::FuncDef(..)) => ( /* no semi-colon after function definition */ ),
@@ -330,8 +334,34 @@ fn parse_var_decl(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<Synta
     expects_token(Token::Let, tokens.next().unwrap_or(&Token::EOF))?;
 
     let var = parse_var(tokens)?;
+    let maybe_semi_colon = tokens.peek().unwrap_or(&&Token::EOF);
+
+    if **maybe_semi_colon == Token::SemiColon {
+        // no problemo
+        return Ok(SyntaxNode::VarDecl(vec![var]));
+    }
+
     expects_token(Token::Equal, tokens.next().unwrap_or(&Token::EOF))?;
     let value = parse_expression(tokens, 0.0)?;
 
     return Ok(SyntaxNode::VarDecl(vec![var, value]));
+}
+
+fn parse_var_modif(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
+    let name = tokens.next().unwrap_or(&Token::EOF);
+    expects_an_identfier(name)?;
+
+    let operator: &Token = *tokens.peek().unwrap_or(&&Token::EOF);
+    let op_power = get_binding_power(operator);
+    if *operator != Token::Equal {
+        if op_power.is_err()  {
+            return Err(op_power.unwrap_err());
+        }
+        tokens.next();
+    }
+
+    expects_token(Token::Equal, tokens.next().unwrap_or(&Token::EOF))?;
+    let value = parse_expression(tokens, 0.0)?;
+
+    return Ok(SyntaxNode::VarModif(name.clone(), operator.clone(), Box::new(value)));
 }
