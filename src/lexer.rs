@@ -324,9 +324,9 @@ fn print_diff(tokens: &Vec<Token>, expecteds: &Vec<Token>) {
 }
 
 #[test]
-pub fn hellow_test() {
+pub fn hellow_test() -> Result<(), Error> {
     let hellow_program = std::fs::read_to_string("test/hellow.bias").expect("there must be code");
-    let tokens = tokenize(hellow_program.as_str()).expect("Lexical error");
+    let tokens = tokenize(hellow_program.as_str())?;
     let expecteds: Vec<Token> = vec!
     [
         Token::OpenSqrBrackets,
@@ -349,4 +349,6 @@ pub fn hellow_test() {
     print_diff(&tokens, &expecteds);
 
     assert!(tokens == expecteds);
+
+    Ok(())
 }

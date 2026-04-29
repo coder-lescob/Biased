@@ -22,7 +22,7 @@ pub enum SyntaxNode {
     VarDecl   ( Vec<SyntaxNode> /* name, type and expr */),
 }
 
-pub fn parse(tokens: Vec<Token>) -> Result<SyntaxNode, Error> {
+pub fn parse(tokens: &Vec<Token>) -> Result<SyntaxNode, Error> {
     let mut tokens_iter = tokens.iter().peekable();
     let mut code: Vec<SyntaxNode> = vec![];
 

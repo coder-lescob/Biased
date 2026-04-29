@@ -16,12 +16,22 @@ fn main() -> Result<(), Error> {
         return Ok(());
     }
 
+    // read the code to a string
     let code_file = &argv[1];
-    let code = std::fs::read_to_string(code_file).expect("unable to open input file");
-    let tokens = lexer::tokenize(&code)?;
+    let code = std::fs::read_to_string(code_file);
+    if code.is_err() {
+        return Err(Error::UnableToOpenFile(code_file.clone()));
+    }
 
+    // tokenize the code
+    let tokens = lexer::tokenize(&code.unwrap())?;
+
+    // parse it
+    let ast = parser::parse(&tokens)?;
+
+    // print for now
     println!("tokens = \n{:#?}\n", tokens);
-    println!("ast = \n{:#?}\n", parser::parse(tokens)?);
+    println!("ast = \n{:#?}\n", ast);
 
     Ok(())
 }
