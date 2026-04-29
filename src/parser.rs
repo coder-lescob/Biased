@@ -273,7 +273,16 @@ fn get_binding_power(token: &Token) -> Result<(f64, f64), Error> {
 
 fn parse_expression(tokens: &mut Peekable<slice::Iter<'_, Token>>, min_binding_power: f64) -> Result<SyntaxNode, Error> {
     // This algorithm is based on pratt parsing
-    let mut lhs = parse_value(tokens)?;
+    let mut lhs = match tokens.peek() {
+        Some(Token::OpenParentheses) => {
+            tokens.next();
+            let in_parentheses = parse_expression(tokens, 0.0)?;
+            expects_token(Token::CloseParentheses, tokens.next().unwrap_or(&Token::EOF))?;
+
+            in_parentheses
+        },
+        _ => parse_value(tokens)?,
+    };
 
     loop {
         let op = tokens.peek().unwrap_or(&&Token::EOF);
