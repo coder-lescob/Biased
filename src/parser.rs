@@ -4,23 +4,24 @@ use std::{iter::Peekable, slice};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum SyntaxNode {
-    Scope     ( Vec<SyntaxNode>                                     ),
+    Scope     (Vec<SyntaxNode>),
 
-    FuncHeader( Vec<Token> /* options */                            ),
-    FuncName  ( Token                                               ),
-    FuncParams( Vec<SyntaxNode> /* parameters */                    ),
-    FuncDef   ( Vec<SyntaxNode> /* func header fellowed by body */  ),
-    FuncArgs  ( Vec<SyntaxNode>                                     ),
-    FuncCall  ( Vec<SyntaxNode> /* args */                          ),
+    FuncHeader(Vec<Token> /* options */                          ),
+    FuncName  (Token                                             ),
+    FuncParams(Vec<SyntaxNode> /* parameters */                  ),
+    FuncDef   (Vec<SyntaxNode> /* func header fellowed by body */),
+    FuncArgs  (Vec<SyntaxNode>                                   ),
+    FuncCall  (Vec<SyntaxNode> /* args */                        ),
     
     ExprLiteral(Token          ),
+    ExprCast   (Vec<SyntaxNode> /* type, expr */),
     Expr       (Token /* operator */, Vec<SyntaxNode>),
     
-    Var       ( Token /* id */, Box<SyntaxNode> /* type */          ),
-    Type      ( Token                                               ),
+    Var       (Token /* id */, Box<SyntaxNode> /* type */          ),
+    Type      (Token                                               ),
 
-    VarDecl   ( Vec<SyntaxNode> /* name, type and expr */ ),
-    VarModif  ( Token, Token, Box<SyntaxNode> /* name, op, new value */ ),
+    VarDecl   (Vec<SyntaxNode> /* name, type and expr */ ),
+    VarModif  (Token, Token, Box<SyntaxNode> /* name, op, new value */ ),
 }
 
 pub fn parse(tokens: &Vec<Token>) -> Result<SyntaxNode, Error> {
@@ -285,10 +286,20 @@ fn parse_expression(tokens: &mut Peekable<slice::Iter<'_, Token>>, min_binding_p
     };
 
     loop {
-        let op = tokens.peek().unwrap_or(&&Token::EOF);
+        let op = *tokens.peek().unwrap_or(&&Token::EOF);
 
         match op {
+            // end of expression
             Token::Comma | Token::SemiColon | Token::EOF | Token::CloseParentheses => break,
+
+            // expression cast
+            Token::As => {
+                tokens.next();
+                let cast_type = parse_type(tokens)?;
+
+                lhs = SyntaxNode::ExprCast(vec![cast_type, lhs]);
+                continue;
+            }
             _ => (/* we want to throw an error if op is not an operator */)
         }
         

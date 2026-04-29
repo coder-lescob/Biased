@@ -40,6 +40,9 @@ pub enum Token {
     // keywords
     Func,
     Let,
+
+    // cast
+    As,
     
     StringLiteral(String),
     InvalidStringLiteral(String),
@@ -237,6 +240,7 @@ impl FromStr for Token {
 
             "func" => return Ok(Token::Func),
             "let"  => return Ok(Token::Let),
+            "as"   => return Ok(Token::As),
             _ => { /* not a keyword or a known symbol */ },
         }
 
