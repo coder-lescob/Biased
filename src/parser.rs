@@ -4,7 +4,7 @@ use std::{iter::Peekable, slice};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum SyntaxNode {
-    Scope     (Vec<SyntaxNode>),
+    Scope(Vec<SyntaxNode>),
 
     FuncHeader(Vec<Token> /* options */                          ),
     FuncName  (Token                                             ),
@@ -17,14 +17,14 @@ pub enum SyntaxNode {
     ExprCast   (Vec<SyntaxNode> /* type, expr */),
     Expr       (Token /* operator */, Vec<SyntaxNode>),
     
-    Var       (Token /* id */, Box<SyntaxNode> /* type */          ),
-    Type      (Token                                               ),
+    Var (Token /* id */, Box<SyntaxNode> /* type */          ),
+    Type(Token                                               ),
 
-    VarDecl   (Vec<SyntaxNode> /* name, type and expr */ ),
-    VarModif  (Token, Token, Box<SyntaxNode> /* name, op, new value */ ),
+    VarDecl (Vec<SyntaxNode> /* name, type and expr */ ),
+    VarModif(Token, Token, Box<SyntaxNode> /* name, op, new value */ ),
 
-    If    (Vec<SyntaxNode> /* expr, body, [else] */),
-    Else  (Box<SyntaxNode> /* body */              ),
+    If  (Vec<SyntaxNode> /* expr, body, [else] */),
+    Else(Box<SyntaxNode> /* body */              ),
 
     While(Vec<SyntaxNode> /* condition, scope */)
 }
@@ -125,7 +125,8 @@ fn parse_instruction(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<Sy
     check_instruction_result(while_loop, &mut instruction, &dst, &mut biggest_dst);
 
     match instruction {
-        Ok(SyntaxNode::FuncDef(..) | SyntaxNode::If(..) | SyntaxNode::While(..))  => ( /* no semi-colon after function definition or if stmt */ ),
+        Ok(SyntaxNode::FuncDef(..) | SyntaxNode::If(..) | SyntaxNode::While(..)) 
+            => ( /* no semi-colon after function definition or if stmt neither for a while loop */ ),
         Err(..) => ( /* there is an error don't touche to it neither expects a semi-colon after an error */ ),
         _ => expects_token(Token::SemiColon, tokens.next().unwrap_or(&Token::EOF))?,
     };
