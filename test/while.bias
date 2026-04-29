@@ -1,0 +1,9 @@
+[entry_point]
+func main() {
+    let int i = 0;
+
+    while i < 20 {
+        println("%d", i);
+        i++;
+    }
+}

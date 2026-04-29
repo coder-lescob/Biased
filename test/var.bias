@@ -6,4 +6,7 @@ func main() {
 
     let int y = 5;
     let float z = y as float / x as float;
+
+    x++;
+    y--;
 }

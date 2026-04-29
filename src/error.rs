@@ -7,7 +7,7 @@ pub enum Error {
 
     LexicalError(String),
 
-    Expected          (Token, Token),
+    Expected          (Vec<Token>, Token),
     ExpectedIdentifier(Token),
     ExpectedExpr      (Token),
     NotAnOperator     (Token),

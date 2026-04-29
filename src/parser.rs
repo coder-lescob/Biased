@@ -71,9 +71,16 @@ fn try_parse(mut tokens: &mut Peekable<slice::Iter<'_, Token>>,
 fn expects_token(expected: Token, found: &Token) -> Result<(), Error> {
     
     if *found != expected {
-        return Err(Error::Expected( expected, found.clone() ));
+        return Err(Error::Expected( vec![expected], found.clone() ));
     }
     return Ok(());
+}
+
+fn expects_tokens(expecteds: Vec<Token>, found: &Token) -> Result<(), Error> {
+    if !expecteds.contains(found) {
+        return Err(Error::Expected(expecteds, found.clone()));
+    }
+    Ok(())
 }
 
 fn expects_an_identfier(found: &Token) -> Result<(), Error> {
@@ -105,6 +112,9 @@ fn parse_instruction(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<Sy
 
     let (var_modif, dst) = try_parse(tokens, &parse_var_modif);
     check_instruction_result(var_modif, &mut instruction, &dst, &mut biggest_dst);
+
+    let (var_inc_dec, dst) = try_parse(tokens, &parse_var_inc_dec);
+    check_instruction_result(var_inc_dec, &mut instruction, &dst, &mut biggest_dst);
 
     let (if_check, dst) = try_parse(tokens, &parse_if_else);
     check_instruction_result(if_check, &mut instruction, &dst, &mut biggest_dst);
@@ -429,4 +439,23 @@ fn parse_else(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNod
     let scope = parse_scope(tokens)?;
 
     return Ok(SyntaxNode::Else(Box::new(scope)));
+}
+
+fn parse_var_inc_dec(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
+    let name = tokens.next().unwrap_or(&Token::EOF);
+    expects_an_identfier(name)?;
+
+    let op = tokens.next().unwrap_or(&Token::EOF);
+    expects_tokens(vec![Token::Inc, Token::Dec], op)?;
+
+    let amount = match op {
+        Token::Inc => SyntaxNode::ExprLiteral(Token::Int(1)),
+        Token::Dec => SyntaxNode::ExprLiteral(Token::Int(-1)),
+
+        // impossible nonetheless I need to make the compiler happy...
+        _ => SyntaxNode::ExprLiteral(Token::Int(0)),
+    };
+
+    // make it add 1 or -1
+    return Ok(SyntaxNode::VarModif(name.clone(), Token::Plus, Box::new(amount)));
 }

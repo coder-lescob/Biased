@@ -25,6 +25,8 @@ pub enum Token {
     Times,
     Div,
     Mod,
+    Inc,
+    Dec,
     
     // bitwise arithmetic
     BitwiseAnd,
@@ -235,6 +237,8 @@ impl FromStr for Token {
             "-" => return Ok(Token::Minus),
             "*" => return Ok(Token::Times),
             "/" => return Ok(Token::Div),
+            "++" => return Ok(Token::Inc),
+            "--" => return Ok(Token::Dec),
 
             // bitwise arithmetic
             "&" => return Ok(Token::BitwiseAnd),
