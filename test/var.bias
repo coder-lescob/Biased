@@ -5,5 +5,5 @@ func main() {
     x += 5 * 2 + 6;
 
     let int y = 5;
-    let float z = y / x as float;
+    let float z = y as float / x as float;
 }
