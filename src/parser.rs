@@ -70,6 +70,20 @@ fn try_parse(mut tokens: &mut Peekable<slice::Iter<'_, Token>>,
     return (parse_func(&mut tokens), usize::MAX);
 }
 
+fn parse_multiple_options(tokens: &mut Peekable<slice::Iter<'_, Token>>, 
+    functions: Vec< fn(&mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error>>) -> Result<SyntaxNode, Error> 
+{
+    let mut instruction: Result<SyntaxNode, Error> = Err(Error::UnknownInstruction);
+    let mut biggest_dst: usize = usize::MIN;
+
+    for func in functions {
+        let (parse_result, dst) = try_parse(tokens, &func);
+        check_instruction_result(parse_result, &mut instruction, &dst, &mut biggest_dst);
+    }
+
+    return instruction;
+}
+
 fn expects_token(expected: Token, found: &Token) -> Result<(), Error> {
     
     if *found != expected {
@@ -100,38 +114,25 @@ fn check_instruction_result(instruction_result: Result<SyntaxNode, Error>, instr
 }
 
 fn parse_instruction(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
-    let mut instruction: Result<SyntaxNode, Error> = Err(Error::UnknownInstruction);
-    let mut biggest_dst: usize = usize::MIN;
+    let possible_instructions = vec![
+        parse_func_def,
+        parse_func_call,
+        parse_var_decl,
+        parse_var_modif,
+        parse_var_inc_dec,
+        parse_if_else,
+        parse_while_loop,
+    ];
 
-    let (func_def, dst) = try_parse(tokens, &parse_func_def);
-    check_instruction_result(func_def, &mut instruction, &dst, &mut biggest_dst);
-
-    let (func_call, dst) = try_parse(tokens, &parse_func_call);
-    check_instruction_result(func_call, &mut instruction, &dst, &mut biggest_dst);
-
-    let (var_decl, dst) = try_parse(tokens, &parse_var_decl);
-    check_instruction_result(var_decl, &mut instruction, &dst, &mut biggest_dst);
-
-    let (var_modif, dst) = try_parse(tokens, &parse_var_modif);
-    check_instruction_result(var_modif, &mut instruction, &dst, &mut biggest_dst);
-
-    let (var_inc_dec, dst) = try_parse(tokens, &parse_var_inc_dec);
-    check_instruction_result(var_inc_dec, &mut instruction, &dst, &mut biggest_dst);
-
-    let (if_check, dst) = try_parse(tokens, &parse_if_else);
-    check_instruction_result(if_check, &mut instruction, &dst, &mut biggest_dst);
-
-    let (while_loop, dst) = try_parse(tokens, &parse_while_loop);
-    check_instruction_result(while_loop, &mut instruction, &dst, &mut biggest_dst);
+    let instruction: SyntaxNode = parse_multiple_options(tokens, possible_instructions)?;
 
     match instruction {
-        Ok(SyntaxNode::FuncDef(..) | SyntaxNode::If(..) | SyntaxNode::While(..)) 
+        SyntaxNode::FuncDef(..) | SyntaxNode::If(..) | SyntaxNode::While(..)
             => ( /* no semi-colon after function definition or if stmt neither for a while loop */ ),
-        Err(..) => ( /* there is an error don't touche to it neither expects a semi-colon after an error */ ),
         _ => expects_token(Token::SemiColon, tokens.next().unwrap_or(&Token::EOF))?,
     };
 
-    return instruction;
+    return Ok(instruction);
 }
 
 fn parse_func_header(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
