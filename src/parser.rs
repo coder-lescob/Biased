@@ -419,6 +419,25 @@ fn parse_var_modif(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<Synt
     return Ok(SyntaxNode::VarModif(name.clone(), operator.clone(), Box::new(value)));
 }
 
+fn parse_var_inc_dec(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
+    let name = tokens.next().unwrap_or(&Token::EOF);
+    expects_an_identfier(name)?;
+
+    let op = tokens.next().unwrap_or(&Token::EOF);
+    expects_tokens(vec![Token::Inc, Token::Dec], op)?;
+
+    let amount = match op {
+        Token::Inc => SyntaxNode::ExprLiteral(Token::Int(1)),
+        Token::Dec => SyntaxNode::ExprLiteral(Token::Int(-1)),
+
+        // impossible nonetheless I need to make the compiler happy...
+        _ => SyntaxNode::ExprLiteral(Token::Int(0)),
+    };
+
+    // make it add 1 or -1
+    return Ok(SyntaxNode::VarModif(name.clone(), Token::Plus, Box::new(amount)));
+}
+
 fn parse_if_else(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
     expects_token(Token::If, tokens.next().unwrap_or(&Token::EOF))?;
     let condition = parse_expression(tokens, 0.0)?;
@@ -446,25 +465,6 @@ fn parse_else(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNod
     let scope = parse_scope(tokens)?;
 
     return Ok(SyntaxNode::Else(Box::new(scope)));
-}
-
-fn parse_var_inc_dec(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
-    let name = tokens.next().unwrap_or(&Token::EOF);
-    expects_an_identfier(name)?;
-
-    let op = tokens.next().unwrap_or(&Token::EOF);
-    expects_tokens(vec![Token::Inc, Token::Dec], op)?;
-
-    let amount = match op {
-        Token::Inc => SyntaxNode::ExprLiteral(Token::Int(1)),
-        Token::Dec => SyntaxNode::ExprLiteral(Token::Int(-1)),
-
-        // impossible nonetheless I need to make the compiler happy...
-        _ => SyntaxNode::ExprLiteral(Token::Int(0)),
-    };
-
-    // make it add 1 or -1
-    return Ok(SyntaxNode::VarModif(name.clone(), Token::Plus, Box::new(amount)));
 }
 
 fn parse_while_loop(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
