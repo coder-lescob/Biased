@@ -26,7 +26,9 @@ pub enum SyntaxNode {
     If  (Vec<SyntaxNode> /* expr, body, [else] */),
     Else(Box<SyntaxNode> /* body */              ),
 
-    While(Vec<SyntaxNode> /* condition, scope */)
+    While          (Vec<SyntaxNode> /* condition, scope */),
+    ForTraditionnal(Vec<SyntaxNode> /* initialization, condtion, iteration */), // C for loop
+    ForModern      (Vec<SyntaxNode>, Vec<Token> /* vars, iterators */),
 }
 
 pub fn parse(tokens: &Vec<Token>) -> Result<SyntaxNode, Error> {
@@ -115,19 +117,22 @@ fn check_instruction_result(instruction_result: Result<SyntaxNode, Error>, instr
 
 fn parse_instruction(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
     let possible_instructions = vec![
-        parse_func_def,
-        parse_func_call,
         parse_var_decl,
         parse_var_modif,
         parse_var_inc_dec,
+
         parse_if_else,
         parse_while_loop,
+        parse_for_traditionnal,
+        
+        parse_func_call,
+        parse_func_def,
     ];
 
     let instruction: SyntaxNode = parse_multiple_options(tokens, possible_instructions)?;
 
     match instruction {
-        SyntaxNode::FuncDef(..) | SyntaxNode::If(..) | SyntaxNode::While(..)
+        SyntaxNode::FuncDef(..) | SyntaxNode::If(..) | SyntaxNode::While(..) | SyntaxNode::ForTraditionnal(..) | SyntaxNode::ForModern(..)
             => ( /* no semi-colon after function definition or if stmt neither for a while loop */ ),
         _ => expects_token(Token::SemiColon, tokens.next().unwrap_or(&Token::EOF))?,
     };
@@ -473,4 +478,22 @@ fn parse_while_loop(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<Syn
     let scope = parse_scope(tokens)?;
 
     return Ok(SyntaxNode::While(vec![condition, scope]));
+}
+
+fn parse_for_traditionnal(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
+    expects_token(Token::For, tokens.next().unwrap_or(&Token::EOF))?;
+
+    let initialization_funcs = vec![parse_var_decl, parse_var_modif];
+    let initialization = parse_multiple_options(tokens, initialization_funcs)?;
+
+    expects_token(Token::Comma, tokens.next().unwrap_or(&Token::EOF))?;
+    let condition = parse_expression(tokens, 0.0)?;
+    expects_token(Token::Comma, tokens.next().unwrap_or(&Token::EOF))?;
+
+    let iteration_funcs = vec![parse_var_modif, parse_var_inc_dec];
+    let iteration = parse_multiple_options(tokens, iteration_funcs)?;
+
+    let scope = parse_scope(tokens)?;
+
+    return Ok(SyntaxNode::ForTraditionnal(vec![initialization, condition, iteration, scope]));
 }

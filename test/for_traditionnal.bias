@@ -1,0 +1,6 @@
+[entry_point]
+func main() {
+    for let int i = 3, i < 27, i++ {
+        println("%d", i);
+    }
+}
