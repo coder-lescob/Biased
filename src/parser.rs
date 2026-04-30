@@ -20,7 +20,8 @@ pub enum SyntaxNode {
     Var (Token /* id */, Box<SyntaxNode> /* type */          ),
     Type(Token                                               ),
 
-    VarDecl (Vec<SyntaxNode> /* name, type and expr */ ),
+    ConstDecl(Vec<SyntaxNode> /* var and expr */),
+    VarDecl (Vec<SyntaxNode> /* var and expr */ ),
     VarModif(Token, Token, Box<SyntaxNode> /* name, op, new value */ ),
 
     If  (Vec<SyntaxNode> /* expr, body, [else] */),
@@ -120,6 +121,8 @@ fn check_instruction_result(instruction_result: Result<SyntaxNode, Error>, instr
 
 fn parse_instruction(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
     let possible_instructions = vec![
+
+        parse_const_decl,
         parse_var_decl,
         parse_var_modif,
         parse_var_inc_dec,
@@ -390,6 +393,17 @@ fn parse_var(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode
     expects_an_identfier(name)?;
 
     return Ok(SyntaxNode::Var(name.clone(), Box::new(var_type)));
+}
+
+fn parse_const_decl(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
+    expects_token(Token::Const, tokens.next().unwrap_or(&Token::EOF))?;
+
+    let var = parse_var(tokens)?;
+    expects_token(Token::Equal, tokens.next().unwrap_or(&Token::EOF))?;
+
+    let value = parse_expression(tokens, 0.0)?;
+
+    return Ok(SyntaxNode::ConstDecl(vec![var, value]));
 }
 
 fn parse_var_decl(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {

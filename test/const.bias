@@ -1,0 +1,4 @@
+[entry_point]
+func main() {
+    const int x = 0;
+}
