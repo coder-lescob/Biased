@@ -28,7 +28,10 @@ pub enum SyntaxNode {
 
     While          (Vec<SyntaxNode> /* condition, scope */),
     ForTraditionnal(Vec<SyntaxNode> /* initialization, condtion, iteration */), // C for loop
-    ForModern      (Vec<SyntaxNode>, Vec<Token> /* vars, iterators */),
+    ForModern      (Vec<SyntaxNode> /* vars, iterators */),
+
+    ForVars(Vec<SyntaxNode>),
+    ForIterators(Vec<Token> /* names */)
 }
 
 pub fn parse(tokens: &Vec<Token>) -> Result<SyntaxNode, Error> {
@@ -124,6 +127,7 @@ fn parse_instruction(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<Sy
         parse_if_else,
         parse_while_loop,
         parse_for_traditionnal,
+        parse_for_modern,
         
         parse_func_call,
         parse_func_def,
@@ -496,4 +500,52 @@ fn parse_for_traditionnal(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Resu
     let scope = parse_scope(tokens)?;
 
     return Ok(SyntaxNode::ForTraditionnal(vec![initialization, condition, iteration, scope]));
+}
+
+fn parse_for_modern(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
+    expects_token(Token::For, tokens.next().unwrap_or(&Token::EOF))?;
+
+    let vars = parse_for_vars(tokens)?;
+    expects_token(Token::In, tokens.next().unwrap_or(&Token::EOF))?;
+
+    let iterators = parse_for_iterators(tokens)?;
+    let scope = parse_scope(tokens)?;
+
+    return Ok(SyntaxNode::ForModern(vec![vars, iterators, scope]));
+}
+
+fn parse_for_vars(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
+    let mut vars: Vec<SyntaxNode> = vec![];
+    
+    loop {
+        let var = parse_var(tokens)?;
+        vars.push(var);
+        
+        match **tokens.peek().unwrap_or(&&Token::EOF) {
+            Token::EOF | Token::In => break,
+            _ => ()
+        }
+        
+        expects_token(Token::Comma, tokens.next().unwrap_or(&Token::EOF))?;
+    }
+
+    return Ok(SyntaxNode::ForVars(vars));
+}
+
+fn parse_for_iterators(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
+    let mut iterators: Vec<Token> = vec![];
+
+    loop {
+        let iterator_name = tokens.next().unwrap_or(&Token::EOF);
+        expects_an_identfier(iterator_name)?;
+
+        iterators.push(iterator_name.clone());
+
+        match **tokens.peek().unwrap_or(&&Token::EOF) {
+            Token::EOF | Token::OpenCurlyBrackets => break,
+            _ => ()
+        }
+    }
+
+    return Ok(SyntaxNode::ForIterators(iterators));
 }

@@ -1,0 +1,7 @@
+[entry_point]
+func main() {
+    let range zero2ten = range(0, 10);
+    for int i in zero2ten {
+        println("%d", i);
+    }
+}

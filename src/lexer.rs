@@ -53,6 +53,7 @@ pub enum Token {
     Else,
     While,
     For,
+    In,
 
     // cast
     As,
@@ -267,6 +268,7 @@ impl FromStr for Token {
             "else" => return Ok(Token::Else),
             "while" => return Ok(Token::While),
             "for"   => return Ok(Token::For),
+            "in"    => return Ok(Token::In),
             _ => { /* not a keyword or a known symbol */ },
         }
 
