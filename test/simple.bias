@@ -1,0 +1,6 @@
+func int foo(int a) {
+    a++;
+    return a;
+}
+
+let int b = foo(15);

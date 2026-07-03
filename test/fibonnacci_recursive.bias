@@ -1,0 +1,10 @@
+func fibonnacci(int a, int b, int depth) {
+    println(a as string);
+    if depth <= 0 {
+        return;
+    }
+    let int c = a + b;
+    fibonnacci(b, c, depth - 1);
+}
+
+fibonnacci(0, 1, 10);

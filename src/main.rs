@@ -1,9 +1,11 @@
 mod lexer;
 mod parser;
 mod error;
+mod interpreter;
 
 use std::env;
 use crate::error::Error;
+use crate::interpreter::Interpreter;
 
 static COLOR_RED: &str = "\x1b[38;5;196m";
 static DEFAULT_COLOR: &str = "\x1b[0m";
@@ -30,8 +32,11 @@ fn main() -> Result<(), Error> {
     let ast = parser::parse(&tokens)?;
 
     // print for now
-    println!("tokens = \n{:#?}\n", tokens);
-    println!("ast = \n{:#?}\n", ast);
+    //println!("tokens = \n{:#?}\n", tokens);
+    //println!("ast = \n{:#?}\n", ast);
+
+    let mut interpreter = Interpreter::new();
+    interpreter.interprete(ast)?;
 
     Ok(())
 }

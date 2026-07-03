@@ -48,6 +48,7 @@ pub enum Token {
 
     // keywords
     Func,
+    Return,
     Let,
     Const,
     If,
@@ -263,6 +264,7 @@ impl FromStr for Token {
             "<=" => return Ok(Token::LessOrEqualTo),
 
             "func"  => return Ok(Token::Func),
+            "return" => return Ok(Token::Return),
             "let"   => return Ok(Token::Let),
             "const" => return Ok(Token::Const),
             "as"    => return Ok(Token::As),

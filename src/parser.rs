@@ -9,7 +9,7 @@ pub enum SyntaxNode {
     FuncHeader(Vec<Token> /* options */                          ),
     FuncName  (Token                                             ),
     FuncParams(Vec<SyntaxNode> /* parameters */                  ),
-    FuncDef   (Vec<SyntaxNode> /* func header fellowed by body */),
+    FuncDef   (Vec<SyntaxNode> /* name, body, return_type THEN header */      ),
     FuncArgs  (Vec<SyntaxNode>                                   ),
     FuncCall  (Vec<SyntaxNode> /* args */                        ),
     
@@ -32,7 +32,9 @@ pub enum SyntaxNode {
     ForModern      (Vec<SyntaxNode> /* vars, iterators */),
 
     ForVars(Vec<SyntaxNode>),
-    ForIterators(Vec<Token> /* names */)
+    ForIterators(Vec<Token> /* names */),
+
+    Return(Option<Box<SyntaxNode>>),
 }
 
 pub fn parse(tokens: &Vec<Token>) -> Result<SyntaxNode, Error> {
@@ -134,6 +136,8 @@ fn parse_instruction(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<Sy
         
         parse_func_call,
         parse_func_def,
+
+        parse_return,
     ];
 
     let instruction: SyntaxNode = parse_multiple_options(tokens, possible_instructions)?;
@@ -204,18 +208,38 @@ fn parse_func_params(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<Sy
 fn parse_func_def(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
     let mut func_body = vec![];
 
+    // try parse an header
     let (header, _) = try_parse(tokens, &parse_func_header);
-    if header.is_ok() {
-        // it is garentee to unwrap successfully
-        func_body.push(header.unwrap());
-    }
 
     let func_keyword = tokens.next().unwrap_or(&Token::EOF);
     expects_token(Token::Func, func_keyword)?;
 
+    let (mut return_type, _) = try_parse(tokens, &parse_type);
+    if return_type.is_err() {
+        return_type = Ok(SyntaxNode::Type(Token::Identifier("void".to_string())));
+    }
+
     // function name
-    let func_name = tokens.next().unwrap_or(&Token::EOF);
-    expects_an_identfier(func_name)?;
+    let mut func_name = (*tokens.peek().unwrap_or(&&Token::EOF)).clone();
+    func_name = match return_type.clone() {
+        Ok(SyntaxNode::Type(_type)) => {
+            if expects_an_identfier(&func_name).is_err() {
+                // type might have eaten the name of the function
+                let name = _type;
+                return_type = Ok(SyntaxNode::Type(Token::Identifier("void".to_string())));
+                name
+            }
+            else {
+                tokens.next();
+                func_name
+            }
+        }
+        _ => {
+            tokens.next();
+            func_name
+        },
+    };
+    expects_an_identfier(&func_name)?;
     func_body.push(SyntaxNode::FuncName(func_name.clone()));
 
     let parameters = parse_func_params(tokens)?;
@@ -223,6 +247,14 @@ fn parse_func_def(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<Synta
 
     let body = parse_scope(tokens)?;
     func_body.push(body);
+
+    // push the return type
+    func_body.push(return_type?);
+    
+    if header.is_ok() {
+        // it is garentee to unwrap successfully
+        func_body.push(header?);
+    }
 
     return Ok(SyntaxNode::FuncDef(func_body));
 }
@@ -562,4 +594,23 @@ fn parse_for_iterators(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<
     }
 
     return Ok(SyntaxNode::ForIterators(iterators));
+}
+
+fn parse_return(tokens: &mut Peekable<slice::Iter<'_, Token>>) -> Result<SyntaxNode, Error> {
+    expects_token(Token::Return, tokens.next().unwrap_or(&Token::EOF))?;
+
+    // curring the binding power of 0.0
+    // try parse an expression if there is none then none is returned and forwarded, that's fine
+    let (maybe_expression, _) = try_parse(tokens, &|tokens: &mut Peekable<slice::Iter<'_, Token>>| Ok(parse_expression(tokens, 0.0)?));
+    
+    let expr = if maybe_expression.is_err() {
+        // fine it is just none
+        None
+    }
+    else {
+        // unwrap the expression
+        Some(Box::new(maybe_expression.unwrap()))
+    };
+
+    return Ok(SyntaxNode::Return(expr));
 }
